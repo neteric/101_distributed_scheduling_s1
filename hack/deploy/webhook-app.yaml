@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-webhook-template
+  namespace: k8s-webhook-template
+  labels:
+    app: k8s-webhook-template
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k8s-webhook-template
+  template:
+    metadata:
+      labels:
+        app: k8s-webhook-template
+    spec:
+      containers:
+        - name: k8s-webhook-template
+          image: docker.io/neteric/k8s-admission-webhook:v1.0-1-g6da183a-dirty
+          imagePullPolicy: Always
+          command: ["/bin/k8s-admission-webhook"]
+          args:
+            - --cert-dir=/etc/webhook/certs
+            - --tls-cert-file-name=cert.pem
+            - --tls-private-key-file-name=key.pem
+          ports:
+            - name: https
+              containerPort: 8443
+              protocol: TCP
+          readinessProbe:
+            periodSeconds: 15
+            httpGet:
+              path: /readyz
+              port: https
+              scheme: HTTPS
+          volumeMounts:
+            - name: webhook-certs
+              mountPath: /etc/webhook/certs
+              readOnly: true
+      volumes:
+        - name: webhook-certs
+          secret:
+            secretName: k8s-webhook-template-certs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8s-webhook-template
+  namespace: k8s-webhook-template
+  labels:
+    app: k8s-webhook-template
+spec:
+  ports:
+  - name: https
+    port: 443
+    targetPort: 8443
+  selector:
+    app: k8s-webhook-template
