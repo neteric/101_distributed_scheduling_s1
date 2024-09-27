@@ -13,7 +13,7 @@ set -f
 mkcert \
   --cert-file "${OUT_CERT}" \
   --key-file "${OUT_KEY}" \
-  "${WEBHOOK_SVC}"
+  "${WEBHOOK_SVC}" 192.168.254.2
 set +f
 
 # Create certs secrets for k8s.

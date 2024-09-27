@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/kubernetes"
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/term"
 	"k8s.io/klog/v2"
@@ -24,7 +25,7 @@ import (
 	gschema "github.com/neteric/101_distributed_scheduling_s1/pkg/util/schema"
 	"github.com/neteric/101_distributed_scheduling_s1/pkg/version"
 	"github.com/neteric/101_distributed_scheduling_s1/pkg/version/sharedcommand"
-	deploymentapp "github.com/neteric/101_distributed_scheduling_s1/pkg/webhook/deploymentapp"
+	podapp "github.com/neteric/101_distributed_scheduling_s1/pkg/webhook/podapp"
 )
 
 // NewWebhookCommand creates a *cobra.Command object with default parameters
@@ -112,13 +113,17 @@ func Run(ctx context.Context, opts *options.Options) error {
 	klog.Info("Registering webhooks to the webhook server")
 	hookServer := hookManager.GetWebhookServer()
 
+	clientset, err := kubernetes.NewForConfig(hookManager.GetConfig())
+	if err != nil {
+		panic(err)
+	}
 	// register validate admission webhook
 	hookServer.Register("/validate-pod", &webhook.Admission{
-		Handler: &deploymentapp.ValidatingAdmission{Decoder: decoder},
+		Handler: &podapp.ValidatingAdmission{Decoder: decoder},
 	})
 	// register mutating admission webhook
 	hookServer.Register("/mutate-pod", &webhook.Admission{
-		Handler: &deploymentapp.MutatingAdmission{Decoder: decoder},
+		Handler: &podapp.MutatingAdmission{Decoder: decoder, Client: clientset},
 	})
 
 	hookServer.WebhookMux().Handle("/readyz/", http.StripPrefix("/readyz/", &healthz.Handler{}))

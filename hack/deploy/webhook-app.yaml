@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: k8s-webhook-template
-          image: docker.io/neteric/k8s-admission-webhook:v1.0-1-g6da183a-dirty
+          image: docker.io/neteric/k8s-admission-webhook:v0.0.1
           imagePullPolicy: Always
           command: ["/bin/k8s-admission-webhook"]
           args:

@@ -1,8 +1,9 @@
-package deploymentapp
+package podapp
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -20,7 +21,7 @@ import (
 // MutatingAdmission mutates API request if necessary.
 type MutatingAdmission struct {
 	Decoder admission.Decoder
-	Client  kubernetes.Clientset
+	Client  *kubernetes.Clientset
 }
 
 const (
@@ -28,9 +29,10 @@ const (
 	AnnotationHighWaterLevel       string = "webhook-demo.com/high-water-level"
 	AnnotationScheduleCompensation string = "webhook-demo.com/schedule-compensation"
 	OnDemandNodeLabelKey           string = "node.kubernetes.io/capacity"
-	OnDemandNodeLabelValue         string = "on-demand"
+	OnDemandValue                  string = "on-demand"
 	SpotNodeLabelKey               string = "node.kubernetes.io/capacity"
-	SpotNodeLabelValue             string = "spot"
+	SpotValue                      string = "spot"
+	PDC                            string = "controller.kubernetes.io/pod-deletion-cost"
 )
 
 // Check if our MutatingAdmission implements necessary interface
@@ -68,10 +70,12 @@ func (a *MutatingAdmission) Handle(ctx context.Context, req admission.Request) a
 	if err != nil {
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
-	if a.countOnDemandPod(podList) <= strategy.LowWaterLevel {
+	if a.countOnDemandPod(podList) < strategy.LowWaterLevel {
 		a.ensureOnDemandNodeAffinityOfPod(pod)
+		a.ensurePodDeleteCost(OnDemandValue, pod)
 	} else {
 		a.ensureSpotNodeAffinityOfPod(pod)
+		a.ensurePodDeleteCost(SpotValue, pod)
 	}
 
 	marshaledBytes, err := json.Marshal(pod)
@@ -97,7 +101,7 @@ func (a *MutatingAdmission) ensureOnDemandNodeAffinityOfPod(pod *corev1.Pod) {
 							{
 								Key:      OnDemandNodeLabelKey,
 								Operator: corev1.NodeSelectorOpIn,
-								Values:   []string{OnDemandNodeLabelValue},
+								Values:   []string{OnDemandValue},
 							},
 						},
 					},
@@ -105,9 +109,22 @@ func (a *MutatingAdmission) ensureOnDemandNodeAffinityOfPod(pod *corev1.Pod) {
 			},
 		},
 	}
-	a.mergeNodeAffinity("on-demand", pod, OnDemandNodeAffinity)
+	a.mergeNodeAffinity(OnDemandValue, pod, OnDemandNodeAffinity)
 }
 
+func (a *MutatingAdmission) ensurePodDeleteCost(t string, pod *corev1.Pod) {
+	if pod.Annotations == nil {
+		pod.Annotations = make(map[string]string)
+	}
+	if _, ok := pod.Annotations[PDC]; !ok {
+		switch t {
+		case OnDemandValue:
+			pod.Annotations[PDC] = "20000"
+		case SpotValue:
+			pod.Annotations[PDC] = "100"
+		}
+	}
+}
 func (a *MutatingAdmission) ensureSpotNodeAffinityOfPod(pod *corev1.Pod) {
 	SpotNodeAffinity := &corev1.Affinity{
 		NodeAffinity: &corev1.NodeAffinity{
@@ -119,7 +136,7 @@ func (a *MutatingAdmission) ensureSpotNodeAffinityOfPod(pod *corev1.Pod) {
 							{
 								Key:      SpotNodeLabelKey,
 								Operator: corev1.NodeSelectorOpIn,
-								Values:   []string{SpotNodeLabelValue},
+								Values:   []string{SpotValue},
 							},
 						},
 					},
@@ -127,7 +144,7 @@ func (a *MutatingAdmission) ensureSpotNodeAffinityOfPod(pod *corev1.Pod) {
 			},
 		},
 	}
-	a.mergeNodeAffinity("spot", pod, SpotNodeAffinity)
+	a.mergeNodeAffinity(SpotValue, pod, SpotNodeAffinity)
 }
 
 func (a *MutatingAdmission) countOnDemandPod(podList *corev1.PodList) int {
@@ -141,7 +158,7 @@ func (a *MutatingAdmission) countOnDemandPod(podList *corev1.PodList) int {
 				continue
 			}
 			for _, v := range k.MatchExpressions {
-				if v.Key == OnDemandNodeLabelKey && v.Operator == corev1.NodeSelectorOpIn && v.Values[0] == OnDemandNodeLabelValue {
+				if v.Key == OnDemandNodeLabelKey && v.Operator == corev1.NodeSelectorOpIn && v.Values[0] == OnDemandValue {
 					count++
 				}
 			}
@@ -158,7 +175,7 @@ func (a *MutatingAdmission) mergeNodeAffinity(t string, pod *corev1.Pod, affinit
 
 	} else {
 		switch t {
-		case "on-demand":
+		case OnDemandValue:
 			if pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
 				pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
 			} else if pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms == nil {
@@ -166,7 +183,7 @@ func (a *MutatingAdmission) mergeNodeAffinity(t string, pod *corev1.Pod, affinit
 			} else {
 				pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms...)
 			}
-		case "spot":
+		case SpotValue:
 			if pod.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution == nil {
 				pod.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution
 			} else {
@@ -187,7 +204,7 @@ func (a *MutatingAdmission) tryAcquireLock(ctx context.Context, pod *corev1.Pod)
 			HolderIdentity: &pod.Name,
 		},
 	}
-	ticker := time.NewTicker(time.Second * 3)
+	ticker := time.NewTicker(time.Millisecond * 100)
 
 	for {
 		select {
@@ -198,6 +215,7 @@ func (a *MutatingAdmission) tryAcquireLock(ctx context.Context, pod *corev1.Pod)
 			if err == nil {
 				return true
 			}
+			klog.Error(err)
 		}
 
 	}
@@ -216,12 +234,19 @@ type UserStrategy struct {
 
 func (a *MutatingAdmission) GetAnnotationsOfDeployment(ctx context.Context, pod *corev1.Pod) (*UserStrategy, error) {
 	var replisetName string
+	if pod.OwnerReferences == nil {
+		return nil, fmt.Errorf("pod.OwnerReferences is nil")
+	}
 	for _, v := range pod.OwnerReferences {
 		if *v.Controller {
 			replisetName = v.Name
 			break
 		}
 	}
+	if replisetName == "" {
+		return nil, fmt.Errorf("replisetName is empty")
+	}
+
 	repliset, err := a.Client.AppsV1().ReplicaSets(pod.Namespace).Get(ctx, replisetName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -232,6 +257,9 @@ func (a *MutatingAdmission) GetAnnotationsOfDeployment(ctx context.Context, pod 
 			deployName = v.Name
 			break
 		}
+	}
+	if deployName == "" {
+		return nil, fmt.Errorf("deployName is empty")
 	}
 	deploy, err := a.Client.AppsV1().Deployments(pod.Namespace).Get(ctx, deployName, metav1.GetOptions{})
 	if err != nil {

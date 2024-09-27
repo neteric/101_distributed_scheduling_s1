@@ -1,4 +1,4 @@
-package deploymentapp
+package podapp
 
 import (
 	"context"
