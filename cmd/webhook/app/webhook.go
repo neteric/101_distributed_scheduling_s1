@@ -17,14 +17,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/VTeam/k8s-webhook-template/cmd/webhook/app/options"
-	"github.com/VTeam/k8s-webhook-template/pkg/sharedcli"
-	"github.com/VTeam/k8s-webhook-template/pkg/sharedcli/klogflag"
-	"github.com/VTeam/k8s-webhook-template/pkg/sharedcli/profileflag"
-	gschema "github.com/VTeam/k8s-webhook-template/pkg/util/schema"
-	"github.com/VTeam/k8s-webhook-template/pkg/version"
-	"github.com/VTeam/k8s-webhook-template/pkg/version/sharedcommand"
-	pod "github.com/VTeam/k8s-webhook-template/pkg/webhook/pod"
+	"github.com/neteric/101_distributed_scheduling_s1/cmd/webhook/app/options"
+	"github.com/neteric/101_distributed_scheduling_s1/pkg/sharedcli"
+	"github.com/neteric/101_distributed_scheduling_s1/pkg/sharedcli/klogflag"
+	"github.com/neteric/101_distributed_scheduling_s1/pkg/sharedcli/profileflag"
+	gschema "github.com/neteric/101_distributed_scheduling_s1/pkg/util/schema"
+	"github.com/neteric/101_distributed_scheduling_s1/pkg/version"
+	"github.com/neteric/101_distributed_scheduling_s1/pkg/version/sharedcommand"
+	deploymentapp "github.com/neteric/101_distributed_scheduling_s1/pkg/webhook/deploymentapp"
 )
 
 // NewWebhookCommand creates a *cobra.Command object with default parameters
@@ -114,11 +114,11 @@ func Run(ctx context.Context, opts *options.Options) error {
 
 	// register validate admission webhook
 	hookServer.Register("/validate-pod", &webhook.Admission{
-		Handler: &pod.ValidatingAdmission{Decoder: decoder},
+		Handler: &deploymentapp.ValidatingAdmission{Decoder: decoder},
 	})
 	// register mutating admission webhook
 	hookServer.Register("/mutate-pod", &webhook.Admission{
-		Handler: &pod.MutatingAdmission{Decoder: decoder},
+		Handler: &deploymentapp.MutatingAdmission{Decoder: decoder},
 	})
 
 	hookServer.WebhookMux().Handle("/readyz/", http.StripPrefix("/readyz/", &healthz.Handler{}))

@@ -3,7 +3,7 @@ package options
 import (
 	"github.com/spf13/pflag"
 
-	"github.com/VTeam/k8s-webhook-template/pkg/sharedcli/profileflag"
+	"github.com/neteric/101_distributed_scheduling_s1/pkg/sharedcli/profileflag"
 )
 
 const (

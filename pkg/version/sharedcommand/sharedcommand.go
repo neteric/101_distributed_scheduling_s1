@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/kubectl/pkg/util/templates"
 
-	"github.com/VTeam/k8s-webhook-template/pkg/version"
+	"github.com/neteric/101_distributed_scheduling_s1/pkg/version"
 )
 
 var (

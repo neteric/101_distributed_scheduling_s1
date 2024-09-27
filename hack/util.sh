@@ -10,7 +10,7 @@ set -o pipefail
 TARGET_SOURCE=(
   k8s-admission-webhook=cmd/webhook
 )
-GO_PACKAGE="github.com/VTeam/k8s-webhook-template"
+GO_PACKAGE="github.com/neteric/101_distributed_scheduling_s1"
 
 
 function util:host_platform() {
@@ -31,10 +31,10 @@ function util::version_ldflags() {
     GIT_TREESTATE="dirty"
   fi
   BUILDDATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-  LDFLAGS="-X github.com/VTeam/k8s-webhook-template/pkg/version.gitVersion=${GIT_VERSION} \
-                        -X github.com/VTeam/k8s-webhook-template/pkg/version.gitCommit=${GIT_COMMIT_HASH} \
-                        -X github.com/VTeam/k8s-webhook-template/pkg/version.gitTreeState=${GIT_TREESTATE} \
-                        -X github.com/VTeam/k8s-webhook-template/pkg/version.buildDate=${BUILDDATE}"
+  LDFLAGS="-X github.com/neteric/101_distributed_scheduling_s1/pkg/version.gitVersion=${GIT_VERSION} \
+                        -X github.com/neteric/101_distributed_scheduling_s1/pkg/version.gitCommit=${GIT_COMMIT_HASH} \
+                        -X github.com/neteric/101_distributed_scheduling_s1/pkg/version.gitTreeState=${GIT_TREESTATE} \
+                        -X github.com/neteric/101_distributed_scheduling_s1/pkg/version.buildDate=${BUILDDATE}"
   echo $LDFLAGS
 }
 

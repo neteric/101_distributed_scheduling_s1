@@ -8,7 +8,7 @@ import (
 	"k8s.io/klog/v2"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 
-	"github.com/VTeam/k8s-webhook-template/cmd/webhook/app"
+	"github.com/neteric/101_distributed_scheduling_s1/cmd/webhook/app"
 )
 
 func main() {

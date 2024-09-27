@@ -1,4 +1,4 @@
-module github.com/VTeam/k8s-webhook-template
+module github.com/neteric/101_distributed_scheduling_s1
 
 go 1.22.7
 
